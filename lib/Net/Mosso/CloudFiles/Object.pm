@@ -1,69 +1,115 @@
 package Net::Mosso::CloudFiles::Object;
-use Moose;
-use MooseX::StrictConstructor;
-use Moose::Util::TypeConstraints;
+
+use strict;
+use warnings;
+use Carp;
 use Digest::MD5 qw(md5_hex);
-use Digest::MD5::File qw(file_md5_hex);
+use DateTime::Format::HTTP;
 use File::stat;
+use IO::File;
 
-subtype 'Net::Mosso::CloudFiles::DateTime' => as class_type('DateTime');
-coerce 'Net::Mosso::CloudFiles::DateTime'  => from 'Str' =>
-    via { DateTime::Format::HTTP->parse_datetime($_) };
+sub cloudfiles {$_[0]->{'cloudfiles'}}
+sub name {$_[0]->{'name'}}
 
-type 'Net::Mosso::CloudFiles::Etag' => where { $_ =~ /^[a-z0-9]{32}$/ };
+sub container {
+    my $self = shift;
+    my $data = shift;
+    $self->{'container'} = $data if $data;
+    return $self->{'container'};
+}
 
-has 'cloudfiles' =>
-    ( is => 'ro', isa => 'Net::Mosso::CloudFiles', required => 1 );
-has 'container' =>
-    ( is => 'ro', isa => 'Net::Mosso::CloudFiles::Container', required => 1 );
-has 'name' => ( is => 'ro', isa => 'Str', required => 1 );
-has 'etag' => ( is => 'rw', isa => 'Net::Mosso::CloudFiles::Etag' );
-has 'size' => ( is => 'rw', isa => 'Int' );
-has 'content_type' =>
-    ( is => 'rw', isa => 'Str', default => 'binary/octet-stream' );
-has 'last_modified' =>
-    ( is => 'rw', isa => 'Net::Mosso::CloudFiles::DateTime', coerce => 1 );
+sub etag {
+    my $self = shift;
+    my $data = shift;
+    if ($data) {
+        return unless $data =~ /^[a-z0-9]{32}$/;
+        $self->{'etag'} = $data;
+    }
+    return $self->{'etag'};
+}
 
-has 'cache_value' => (
-    is        => 'rw',
-    isa       => 'Bool',
-    required  => 1,
-    default   => 0
-);
+sub size {
+    my $self = shift;
+    my $data = shift;
+    $self->{'size'} = $data if $data;
+    return $self->{'size'};
+}
 
-has 'always_check_etag' => (
-    is        => 'rw',
-    isa       => 'Bool',
-    required  => 1,
-    default   => 1
-);
+sub content_type {
+    my $self = shift;
+    my $data = shift;
+    $self->{'content_type'} = $data if $data;
+    return $self->{'content_type'} || 'binary/octet-stream';
+}
 
-
-has 'object_metadata' => (
-    is        => 'rw',
-    isa       => 'HashRef',
-    required  => 0,
-    default   => sub  {
-        return {};
-    }  
-);
-
-has 'value' => (
-    is        => 'rw',
-    required  => 0,
-    default   => undef,
-);
-
-has 'local_filename' => (
-    is        => 'rw',
-    isa       => 'Str',
-    required  => 0
-);
+sub charset {
+    my $self = shift;
+    my $data = shift;
+    $self->{'charset'} = $data if $data;
+    return $self->{'charset'} || 'US-ASCII';
+}
 
 
+sub last_modified {
+    my $self = shift;
+    my $data = shift;
+    if ($data) {
+        # Strip nanoseconds due to a floating point issue in DateTime
+        $data =~ s/(\.\d+)$//;
+        $self->{'last_modified'} = DateTime::Format::HTTP->parse_datetime($data);
+    }
+    return $self->{'last_modified'};
+}
+
+sub cache_value {
+    my $self = shift;
+    my $data = shift;
+    $self->{'cache_value'} = $data if $data;
+    return $self->{'cache_value'} || 0;
+}
+
+sub always_check_etag {
+    my $self = shift;
+    my $data = shift;
+    $self->{'always_check_etag'} = $data if $data;
+    return $self->{'always_check_etag'} || 1;
+}
 
 
-__PACKAGE__->meta->make_immutable;
+sub object_metadata {
+    my $self = shift;
+    my $data = shift;
+    $self->{'object_metadata'} = $data if $data;
+    return $self->{'object_metadata'} || {};
+}
+
+sub value {
+    my $self = shift;
+    my $data = shift;
+    $self->{'value'} = $data if $data;
+    return $self->{'value'};
+}
+
+sub local_filename {
+    my $self = shift;
+    my $data = shift;
+    $self->{'local_filename'} = $data if $data;
+    return $self->{'local_filename'};
+}
+
+sub new {
+    my $class = shift;
+    my %args  = @_;
+
+    # XXX Should really limit what we're allowing here
+    my $self = \%args;
+
+    bless $self, $class;
+
+    $self->last_modified($args{'last_modified'}) if $args{'last_modified'};
+
+    return $self;
+}
 
 sub _url {
     my ($self) = @_;
@@ -81,9 +127,11 @@ sub head {
         [ 'X-Auth-Token' => $self->cloudfiles->token ] );
     my $response = $self->cloudfiles->_request($request);
     confess 'Object ' . $self->name . ' not found' if $response->code == 404;
-    confess 'Unknown error' if $response->code != 204;
+    if ($response->code != 204 and $response->code != 200) {
+        confess "Unknown error: ".$response->code;
+    }
     $self->_set_attributes_from_response($response);
-    return $response->content;
+    return $response->content() || '';
 }
 
 sub get {
@@ -224,18 +272,18 @@ sub put_filename {
 sub _prepare_headers {
     my ($self, $etag, $size) = @_;
     my $headers = HTTP::Headers->new();
-    
+
     $headers->header('X-Auth-Token' => $self->cloudfiles->token );
     $headers->header('Content-length' => $size );
     $headers->header('ETag' => $etag );
     $headers->header('Content-Type' => $self->content_type);
-    
+
     my $header_field;
     foreach my $key (keys %{$self->object_metadata}) {
         $header_field = 'X-Object-Meta-' . $key;
         # make _'s -'s for header sending.
         $header_field =~ s/_/-/g;
-        
+
         $headers->header($header_field => $self->object_metadata->{$key});
     }
     return $headers;
@@ -287,10 +335,12 @@ sub _content_sub {
 
 sub _set_attributes_from_response {
     my ( $self, $response ) = @_;
-    
+
     $self->etag( $response->header('ETag') );
     $self->size( $response->header('Content-Length') );
-    $self->content_type( $response->header('Content-Type') );
+    $response->header('Content-Type') =~ /^([^;]+);?/;#(?:charset=(.+))?$/;
+    $self->content_type($1);
+    $self->charset($2) if $2;
     $self->last_modified( $response->header('Last-Modified') );
     my $metadata = {};
     foreach my $headername ($response->headers->header_field_names) {
@@ -306,21 +356,27 @@ sub _set_attributes_from_response {
 
 sub _validate_local_file {
     my ($self, $localfile, $size, $md5) = @_;
-    
+
     my $stat = stat($localfile);
     my $localsize = $stat->size;
-    
+
     # first check size, if they are different, we don't need to bother with 
     # an expensive md5 calculation on the whole file.
     if ($size != $localsize ) {
         return 0;
     }
-    
+
     if ($self->always_check_etag && ($md5 ne file_md5_hex($localfile))) {
         return 0;
     }
     return 1;
 }
+sub file_md5_hex {
+    open FILE, '<', $_[0] or return;
+    binmode FILE;
+    return Digest::MD5->new()->addfile(*FILE)->hexdigest();
+}
+
 
 1;
 
@@ -470,6 +526,12 @@ transmitted to CloudFiles.  They are re-translated when they are retrieved.
 This is mentioned only because if you access your data through a different 
 language or interface, your metadata keys will contain dashes instead of 
 underscores.
+
+=head1 FUNCTIONS
+
+=head2 file_md5_hex
+
+Internal version of Digest::MD5::File::file_md5_hex.
 
 =head1 SEE ALSO
 

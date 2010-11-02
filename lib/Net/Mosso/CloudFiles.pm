@@ -1,59 +1,96 @@
 package Net::Mosso::CloudFiles;
-use Moose;
-use MooseX::StrictConstructor;
-use Data::Stream::Bulk::Callback;
-use DateTime::Format::HTTP;
+
+use strict;
+use warnings;
+use Carp;
+use HTTP::Request;
+use LWP::UserAgent;
+use LWP::ConnCache;
+use URI::QueryParam;
 use Net::Mosso::CloudFiles::Container;
 use Net::Mosso::CloudFiles::Object;
-use LWP::ConnCache::MaxKeepAliveRequests;
-use LWP::UserAgent::Determined;
-use URI::QueryParam;
 our $VERSION = '0.44';
 
 my $DEBUG = 0;
 
-has 'user'    => ( is => 'ro', isa => 'Str', required => 1 );
-has 'key'     => ( is => 'ro', isa => 'Str', required => 1 );
-has 'timeout' => ( is => 'ro', isa => 'Num', required => 0, default => 30 );
+sub user {$_[0]->{'user'}}
+sub key {$_[0]->{'key'}}
+sub timeout {$_[0]->{'timeout'} || 30}
 
-has 'ua'          => ( is => 'rw', isa => 'LWP::UserAgent', required => 0 );
-has 'storage_url' => ( is => 'rw', isa => 'Str',            required => 0 );
-has 'token'       => ( is => 'rw', isa => 'Str',            required => 0 );
-
-__PACKAGE__->meta->make_immutable;
-
-sub BUILD {
+sub ua {
     my $self = shift;
-    my $ua   = LWP::UserAgent::Determined->new(
+    my $data = shift;
+    $self->{'ua'} = $data if $data;
+    return $self->{'ua'};
+}
+
+sub storage_url {
+    my $self = shift;
+    my $data = shift;
+    if ($data) {
+        $self->{'storage_url'} = $data;
+    }
+    return $self->{'storage_url'};
+}
+
+sub token {
+    my $self = shift;
+    my $data = shift;
+    $self->{'token'} = $data if $data;
+    return $self->{'token'};
+}
+
+
+sub new {
+    my $class = shift;
+    my %args  = @_;
+
+    my $self = bless {}, $class;
+
+    $self->{'url'} = $args{'url'} or die 'url argument is required';
+    $self->{'user'} = $args{'user'} or die 'user argument is required';
+    $self->{'key'} = $args{'key'} if defined $args{'key'};
+    $self->{'pass'} = $args{'pass'} if defined $args{'pass'};
+    $self->{'timeout'} = $args{'timeout'} if defined $args{'timeout'};
+
+    if (not defined $self->{'key'} and not defined $self->{'pass'}) {
+        die "A key or pass argument is required!";
+    }
+
+    my $ua   = LWP::UserAgent->new(
         keep_alive            => 10,
         requests_redirectable => [qw(GET HEAD DELETE PUT)],
     );
-    $ua->timing('1,2,4,8,16,32');
     $ua->conn_cache(
-        LWP::ConnCache::MaxKeepAliveRequests->new(
-            total_capacity          => 10,
-            max_keep_alive_requests => 990,
+        LWP::ConnCache->new(
+            total_capacity => 10,
         )
     );
-    my $http_codes_hr = $ua->codes_to_determinate();
-    $http_codes_hr->{422} = 1; # used by cloudfiles for upload data corruption
+#    my $http_codes_hr = $ua->codes_to_determinate();
+#    $http_codes_hr->{422} = 1; # used by cloudfiles for upload data corruption
     $ua->timeout( $self->timeout );
     $ua->env_proxy;
     $self->ua($ua);
 
     $self->_authenticate;
+
+    return $self;
 }
 
 sub _authenticate {
     my $self = shift;
 
-    my $request = HTTP::Request->new(
-        'GET',
-        'https://api.mosso.com/auth',
-        [   'X-Auth-User' => $self->user,
-            'X-Auth-Key'  => $self->key,
-        ]
-    );
+    my $request = HTTP::Request->new('GET' => $self->{'url'});
+
+    if (defined $self->{'key'}) {
+        $request->header('X-Auth-User' => $self->{'user'});
+        $request->header('X-Auth-Key'  => $self->{'key'});
+    }
+    else {
+        $request->header('X-Storage-User' => $self->{'user'});
+        $request->header('X-Storage-Pass' => $self->{'pass'});
+    }
+
     my $response = $self->_request($request);
 
     confess 'Unauthorized'  if $response->code == 401;
@@ -108,6 +145,7 @@ sub containers {
     return @containers;
 }
 
+# Not sure why this isn't returning anything in Swift
 sub total_bytes_used {
     my $self    = shift;
     my $request = HTTP::Request->new( 'HEAD', $self->storage_url,
@@ -141,6 +179,7 @@ sub create_container {
         [ 'X-Auth-Token' => $self->token ]
     );
     my $response = $self->_request($request);
+
     confess 'Unknown error'
         if $response->code != 201 && $response->code != 202;
     return Net::Mosso::CloudFiles::Container->new(

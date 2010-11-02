@@ -1,13 +1,24 @@
 package Net::Mosso::CloudFiles::Container;
-use Moose;
-use MooseX::StrictConstructor;
-use JSON::XS::VersionOneAndTwo;
 
-has 'cloudfiles' =>
-    ( is => 'ro', isa => 'Net::Mosso::CloudFiles', required => 1 );
-has 'name' => ( is => 'ro', isa => 'Str', required => 1 );
+use strict;
+use warnings;
+use Carp;
+use URI;
+use HTTP::Request;
+use JSON::XS;
 
-__PACKAGE__->meta->make_immutable;
+sub cloudfiles {$_[0]->{'cloudfiles'}}
+sub name {$_[0]->{'name'}}
+
+sub new {
+    my $class = shift;
+    my %args  = @_;
+
+    # XXX Should really limit what we're allowing here
+    my $self = \%args;
+    bless $self, $class;
+    return $self;
+}
 
 sub _url {
     my ( $self, $name ) = @_;
@@ -46,52 +57,30 @@ sub delete {
 sub objects {
     my ( $self, %args ) = @_;
 
-    my $limit = 10_000;
-    my $marker;
-    my $prefix   = $args{prefix};
-    my $finished = 0;
+    my $url = URI->new( $self->_url );
+    $url->query_param('format' => 'json');
+    my $request = HTTP::Request->new( 'GET', $url,
+        [ 'X-Auth-Token' => $self->cloudfiles->token ] );
+    my $response = $self->cloudfiles->_request($request);
+    return 0 if $response->code == 204;
+    confess 'Unknown error' if $response->code != 200;
+    return undef unless $response->content;
 
-    return Data::Stream::Bulk::Callback->new(
-        callback => sub {
-            return undef if $finished;
+    my @bits = @{ decode_json($response->content()) };
+    my @objects = ();
 
-            my $url = URI->new( $self->_url );
-            $url->query_param( 'limit',  $limit );
-            $url->query_param( 'marker', $marker );
-            $url->query_param( 'prefix', $prefix );
-            $url->query_param( 'format', 'json' );
-            my $request = HTTP::Request->new( 'GET', $url,
-                [ 'X-Auth-Token' => $self->cloudfiles->token ] );
-            my $response = $self->cloudfiles->_request($request);
-            return if $response->code == 204;
-            confess 'Unknown error' if $response->code != 200;
-            return undef unless $response->content;
-            my @objects;
-
-            my @bits = @{ from_json( $response->content ) };
-            return unless @bits;
-            foreach my $bit (@bits) {
-                push @objects,
-                    Net::Mosso::CloudFiles::Object->new(
-                    cloudfiles    => $self->cloudfiles,
-                    container     => $self,
-                    name          => $bit->{name},
-                    etag          => $bit->{hash},
-                    size          => $bit->{bytes},
-                    content_type  => $bit->{content_type},
-                    last_modified => $bit->{last_modified},
-                    );
-            }
-
-            if ( @bits < $limit ) {
-                $finished = 1;
-            } else {
-                $marker = $objects[-1]->name;
-            }
-
-            return \@objects;
-        }
-    );
+    foreach my $bit (@bits) {
+        push @objects, Net::Mosso::CloudFiles::Object->new(
+                cloudfiles    => $self->cloudfiles,
+                container     => $self,
+                name          => $bit->{name},
+                etag          => $bit->{hash},
+                size          => $bit->{bytes},
+                content_type  => $bit->{content_type},
+                last_modified => $bit->{last_modified},
+            );
+    }
+    return @objects;
 }
 
 sub object {
