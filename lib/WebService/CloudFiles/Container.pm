@@ -66,8 +66,15 @@ sub objects {
     confess 'Unknown error' if $response->code != 200;
     return undef unless $response->content;
 
-    my @bits = @{ decode_json($response->content()) };
+    my @bits = ();
     my @objects = ();
+
+    if ($JSON::XS::VERSION < 2) {
+        @bits = @{ from_json($response->content()) };
+    }
+    else {
+        @bits = @{ decode_json($response->content()) };
+    }
 
     foreach my $bit (@bits) {
         push @objects, WebService::CloudFiles::Object->new(
