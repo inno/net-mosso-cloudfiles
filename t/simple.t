@@ -5,7 +5,7 @@ use lib 'lib';
 use Test::More;
 use Test::Exception;
 use File::stat;
-use Net::Mosso::CloudFiles;
+use WebService::CloudFiles;
 
 #unless ( $ENV{'CLOUDFILES_EXPENSIVE_TESTS'} ) {
 #    plan skip_all => 'Testing this module for real costs money.';
@@ -17,23 +17,23 @@ my $uri  = '';
 my $user = '';
 my $pass = '';
 
-my $cloudfiles = Net::Mosso::CloudFiles->new(
+my $cloudfiles = WebService::CloudFiles->new(
     url  => $uri,
     user => $user,
     pass => $pass,
 );
-isa_ok( $cloudfiles, 'Net::Mosso::CloudFiles' );
+isa_ok( $cloudfiles, 'WebService::CloudFiles' );
 
 
 
 my $container = $cloudfiles->create_container( name => 'testing' );
-isa_ok( $container, 'Net::Mosso::CloudFiles::Container', 'container' );
-isa_ok( $container->cloudfiles, 'Net::Mosso::CloudFiles' );
+isa_ok( $container, 'WebService::CloudFiles::Container', 'container' );
+isa_ok( $container->cloudfiles, 'WebService::CloudFiles' );
 is( $container->name, 'testing', 'container name is testing' );
 
 my $container2 = $cloudfiles->container( name => 'testing' );
-isa_ok( $container2, 'Net::Mosso::CloudFiles::Container', 'container' );
-isa_ok( $container2->cloudfiles, 'Net::Mosso::CloudFiles' );
+isa_ok( $container2, 'WebService::CloudFiles::Container', 'container' );
+isa_ok( $container2->cloudfiles, 'WebService::CloudFiles' );
 is( $container2->name, 'testing', 'container name is testing' );
 
 is( $container->object_count, 0, 'container has no objects' );
@@ -41,9 +41,9 @@ is( $container->bytes_used,   0, 'container uses no bytes' );
 is( $container->objects,      0, 'container has no objects' );
 
 my $one = $container->object( name => 'one.txt' );
-isa_ok( $one, 'Net::Mosso::CloudFiles::Object', 'container' );
-isa_ok( $one->cloudfiles, 'Net::Mosso::CloudFiles' );
-isa_ok( $one->container,  'Net::Mosso::CloudFiles::Container' );
+isa_ok( $one, 'WebService::CloudFiles::Object', 'container' );
+isa_ok( $one->cloudfiles, 'WebService::CloudFiles' );
+isa_ok( $one->container,  'WebService::CloudFiles::Container' );
 is( $one->container->name, 'testing', 'container name is testing' );
 is( $one->name,            'one.txt', 'object name is one.txt' );
 
@@ -76,7 +76,7 @@ my $filename = 't/one.txt';
 $one->get_filename($filename);
 is( read_file($filename), 'this is one', 't/one.txt has correct value' );
 is( -s $filename,         11,            'got size for t/one.txt' );
-is( Net::Mosso::CloudFiles::Object::file_md5_hex($filename),
+is( WebService::CloudFiles::Object::file_md5_hex($filename),
     '855a8e4678542fd944455ee350fa8147',
     'got etag for t/one.txt'
 );

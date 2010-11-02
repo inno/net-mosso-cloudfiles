@@ -1,4 +1,4 @@
-package Net::Mosso::CloudFiles::Object;
+package WebService::CloudFiles::Object;
 
 use strict;
 use warnings;
@@ -384,7 +384,7 @@ __END__
 
 =head1 NAME
 
-Net::Mosso::CloudFiles::Object - Represent a Cloud Files object
+WebService::CloudFiles::Object - Represent a Cloud Files object
 
 =head1 SYNOPSIS
 
@@ -411,7 +411,7 @@ Net::Mosso::CloudFiles::Object - Represent a Cloud Files object
 =head1 DESCRIPTION
 
 This class represents an object in Cloud Files. It is created by
-calling object or objects on a L<Net::Mosso::CloudFiles::Container> object.
+calling object or objects on a L<WebService::CloudFiles::Container> object.
 
 =head1 METHODS
 
@@ -535,7 +535,7 @@ Internal version of Digest::MD5::File::file_md5_hex.
 
 =head1 SEE ALSO
 
-L<Net::Mosso::CloudFiles>, L<Net::Mosso::CloudFiles::Container>.
+L<WebService::CloudFiles>, L<WebService::CloudFiles::Container>.
 
 =head1 AUTHOR
 

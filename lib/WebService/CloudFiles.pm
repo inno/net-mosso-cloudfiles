@@ -1,4 +1,4 @@
-package Net::Mosso::CloudFiles;
+package WebService::CloudFiles;
 
 use strict;
 use warnings;
@@ -7,8 +7,8 @@ use HTTP::Request;
 use LWP::UserAgent;
 use LWP::ConnCache;
 use URI::QueryParam;
-use Net::Mosso::CloudFiles::Container;
-use Net::Mosso::CloudFiles::Object;
+use WebService::CloudFiles::Container;
+use WebService::CloudFiles::Object;
 our $VERSION = '0.44';
 
 my $DEBUG = 0;
@@ -137,7 +137,7 @@ sub containers {
 
     foreach my $name ( split "\n", $response->content ) {
         push @containers,
-            Net::Mosso::CloudFiles::Container->new(
+            WebService::CloudFiles::Container->new(
             cloudfiles => $self,
             name       => $name,
             );
@@ -162,7 +162,7 @@ sub container {
     my $name = $conf{name};
     confess 'Missing name' unless $name;
 
-    return Net::Mosso::CloudFiles::Container->new(
+    return WebService::CloudFiles::Container->new(
         cloudfiles => $self,
         name       => $name,
     );
@@ -182,7 +182,7 @@ sub create_container {
 
     confess 'Unknown error'
         if $response->code != 201 && $response->code != 202;
-    return Net::Mosso::CloudFiles::Container->new(
+    return WebService::CloudFiles::Container->new(
         cloudfiles => $self,
         name       => $name,
     );
@@ -194,14 +194,14 @@ __END__
 
 =head1 NAME
 
-Net::Mosso::CloudFiles - Interface to Mosso CloudFiles service
+WebService::CloudFiles - Interface to Mosso CloudFiles service
 
 =head1 SYNOPSIS
 
-  use Net::Mosso::CloudFiles;
+  use WebService::CloudFiles;
   use Perl6::Say;
 
-  my $cloudfiles = Net::Mosso::CloudFiles->new(
+  my $cloudfiles = WebService::CloudFiles->new(
       user => 'myusername',
       key  => 'mysecretkey',
   );
@@ -293,26 +293,26 @@ are stored in containers.
 
 The constructor logs you into Cloud Files:
 
-  my $cloudfiles = Net::Mosso::CloudFiles->new(
+  my $cloudfiles = WebService::CloudFiles->new(
       user => 'myusername',
       key  => 'mysecretkey',
   );
 
 =head2 containers
 
-List all the containers and return them as L<Net::Mosso::CloudFiles::Container> objects:
+List all the containers and return them as L<WebService::CloudFiles::Container> objects:
 
   my @containers = $cloudfiles->containers;
 
 =head2 create_container
 
-Create a new container and return it as a L<Net::Mosso::CloudFiles::Container> object:
+Create a new container and return it as a L<WebService::CloudFiles::Container> object:
 
   my $container = $cloudfiles->create_container(name => 'testing');
 
 =head2 container
 
-Use an existing container and return it as a L<Net::Mosso::CloudFiles::Container> object:
+Use an existing container and return it as a L<WebService::CloudFiles::Container> object:
 
   my $existing_container = $cloudfiles->container(name => 'testing');
 
@@ -333,7 +333,7 @@ you set the following three environment variables, along the lines of:
 
 =head1 SEE ALSO
 
-L<Net::Mosso::CloudFiles::Container>, L<Net::Mosso::CloudFiles::Object>.
+L<WebService::CloudFiles::Container>, L<WebService::CloudFiles::Object>.
 
 =head1 AUTHOR
 

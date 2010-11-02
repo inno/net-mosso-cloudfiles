@@ -1,4 +1,4 @@
-package Net::Mosso::CloudFiles::Container;
+package WebService::CloudFiles::Container;
 
 use strict;
 use warnings;
@@ -70,7 +70,7 @@ sub objects {
     my @objects = ();
 
     foreach my $bit (@bits) {
-        push @objects, Net::Mosso::CloudFiles::Object->new(
+        push @objects, WebService::CloudFiles::Object->new(
                 cloudfiles    => $self->cloudfiles,
                 container     => $self,
                 name          => $bit->{name},
@@ -86,7 +86,7 @@ sub objects {
 sub object {
     my ( $self, %conf ) = @_;
     confess 'Missing name' unless $conf{name};
-    return Net::Mosso::CloudFiles::Object->new(
+    return WebService::CloudFiles::Object->new(
         cloudfiles => $self->cloudfiles,
         container  => $self,
         %conf,
@@ -99,12 +99,12 @@ __END__
 
 =head1 NAME
 
-Net::Mosso::CloudFiles::Container - Represent a Cloud Files container
+WebService::CloudFiles::Container - Represent a Cloud Files container
 
 =head1 DESCRIPTION
 
 This class represents a container in Cloud Files. It is created by
-calling new_container or container on a L<Net::Mosso::CloudFiles> object.
+calling new_container or container on a L<WebService::CloudFiles> object.
 
 =head1 METHODS
 
@@ -129,7 +129,7 @@ Returns the total number of bytes used by objects in the container:
 =head2 objects
 
 Returns a list of objects in the container as
-L<Net::Mosso::CloudFiles::Object> objects. As the API only returns
+L<WebService::CloudFiles::Object> objects. As the API only returns
 ten thousand objects per request, this module may have to do multiple
 requests to fetch all the objects in the container. This is exposed
 by using a L<Data::Stream::Bulk> object. You can also pass in a
@@ -143,7 +143,7 @@ prefix:
 
 =head2 object
 
-This returns a <Net::Mosso::CloudFiles::Object> representing
+This returns a <WebService::CloudFiles::Object> representing
 an object.
 
   my $xxx = $container->object( name => 'XXX' );
@@ -157,7 +157,7 @@ Deletes the container, which should be empty:
 
 =head1 SEE ALSO
 
-L<Net::Mosso::CloudFiles>, L<Net::Mosso::CloudFiles::Object>.
+L<WebService::CloudFiles>, L<WebService::CloudFiles::Object>.
 
 =head1 AUTHOR
 
