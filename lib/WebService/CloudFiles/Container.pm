@@ -59,6 +59,9 @@ sub objects {
 
     my $url = URI->new( $self->_url );
     $url->query_param('format' => 'json');
+    $url->query_param('prefix' => $args{'prefix'}) if defined $args{'prefix'};
+    $url->query_param('path' => $args{'path'}) if defined $args{'path'};
+
     my $request = HTTP::Request->new( 'GET', $url,
         [ 'X-Auth-Token' => $self->cloudfiles->token ] );
     my $response = $self->cloudfiles->_request($request);
