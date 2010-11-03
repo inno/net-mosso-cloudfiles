@@ -126,17 +126,20 @@ sub head {
     my $request = HTTP::Request->new( 'HEAD', $self->_url,
         [ 'X-Auth-Token' => $self->cloudfiles->token ] );
     my $response = $self->cloudfiles->_request($request);
-    confess 'Object ' . $self->name . ' not found' if $response->code == 404;
-    if ($response->code != 204 and $response->code != 200) {
+
+    if ($response->code !~ /^(?:200|204|404)$/) {
         confess "Unknown error: ".$response->code;
     }
+
     $self->_set_attributes_from_response($response);
-    return $response->content() || '';
+
+    # Let the caller decide what to do next..
+    return $response->code();
 }
 
 sub get {
     my ($self, $force_retrieval) = @_;
-    
+
     if (!$force_retrieval && $self->cache_value() && defined($self->value()) ) {
         return $self->value();
     } else {
