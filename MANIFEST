@@ -8,3 +8,4 @@ README
 t/pod.t
 t/pod_coverage.t
 t/simple.t
+META.yml                                 Module meta-data (added by MakeMaker)
