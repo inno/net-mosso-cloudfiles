@@ -27,9 +27,7 @@ sub ua {
 sub storage_url {
     my $self = shift;
     my $data = shift;
-    if ($data) {
-        $self->{'storage_url'} = $data;
-    }
+    $self->{'storage_url'} = $data if $data;
     return $self->{'storage_url'};
 }
 
