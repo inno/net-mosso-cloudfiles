@@ -94,7 +94,7 @@ sub _authenticate {
     my $response = $self->_request($request);
 
     confess 'Unauthorized'  if $response->code == 401;
-    confess 'Unknown error' if $response->code != 204;
+    confess "Unknown response: ".$response->code if $response->code != 204;
 
     my $storage_url = $response->header('X-Storage-Url')
         || confess 'Missing storage url';
